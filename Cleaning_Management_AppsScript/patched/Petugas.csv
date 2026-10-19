@@ -1,0 +1,4 @@
+"role","nama","aktif","has_special_task","kode","username","id","created_date","updated_date","created_by_id","is_sample"
+"OB","Ezra","true","false","OB01","ob1","6a9710dfccc560ff61216e28","2026-09-01T17:52:31.336000","2026-09-01T17:52:31.336000","6a9702ba9f57bdc209a634a7","false"
+"OB","Udin","true","true","OB02","ob2","6a9710dfccc560ff61216e29","2026-09-01T17:52:31.336000","2026-09-01T17:52:31.336000","6a9702ba9f57bdc209a634a7","false"
+"OB","Yasin","true","false","OB04","ob4","6a9710dfccc560ff61216e2a","2026-09-01T17:52:31.336000","2026-09-01T17:52:31.336000","6a9702ba9f57bdc209a634a7","false"

@@ -1,0 +1,8 @@
+{
+  "name": "Cleaning Management",
+  "short_name": "Cleaning",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f4e79"
+}
