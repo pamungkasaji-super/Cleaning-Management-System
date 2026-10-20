@@ -119,7 +119,7 @@ export default function KelolaPengguna() {
         ) : (
           <div className="space-y-3">
             {filtered.map((u) => {
-              const isSelf = u.email === user.email;
+              const isSelf = String(u.email).trim().toLowerCase() === String(user.email).trim().toLowerCase();
               const busy = busyEmail === u.email;
               return (
                 <div key={u.email} className="bg-card rounded-2xl shadow p-4">
