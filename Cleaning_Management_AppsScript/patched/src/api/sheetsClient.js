@@ -96,6 +96,8 @@ export const db = {
     list: () => call({ action: "listUsers" }),
     setRole: (email, role) => call({ action: "setUserRole", email, role }),
     add: (data) => call({ action: "addUser", data }),
+    setActive: (email, aktif) => call({ action: "setUserActive", email, aktif }),
+    remove: (email) => call({ action: "deleteUser", email }),
   },
   entities: {
     Petugas: makeEntity("Petugas"),
