@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ShieldCheck, UserPlus } from "lucide-react";
+import { ShieldCheck, Trash2, UserCheck, UserPlus, UserX } from "lucide-react";
 import { db } from "@/api/sheetsClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,6 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const ROLES = [
   { value: "admin", label: "Admin" },
@@ -28,12 +38,12 @@ export default function ManageUsers() {
   const [petugas, setPetugas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingEmail, setSavingEmail] = useState("");
-
   const [email, setEmail] = useState("");
   const [nama, setNama] = useState("");
   const [role, setRole] = useState("user");
   const [kode, setKode] = useState("");
   const [adding, setAdding] = useState(false);
+  const [toDelete, setToDelete] = useState(null);
 
   const loadUsers = async () => {
     try {
@@ -64,6 +74,39 @@ export default function ManageUsers() {
     setSavingEmail("");
   };
 
+  // Nonaktifkan / aktifkan akun (berlaku seketika, termasuk untuk sesi yang sedang login)
+  const toggleActive = async (u) => {
+    const nowActive = u.aktif !== false;
+    setSavingEmail(u.email);
+    try {
+      await db.users.setActive(u.email, !nowActive);
+      setUsers((list) => list.map((x) => (x.email === u.email ? { ...x, aktif: !nowActive } : x)));
+      toast({
+        title: nowActive ? "Akun dinonaktifkan" : "Akun diaktifkan",
+        description: u.nama || u.email,
+      });
+    } catch (e) {
+      toast({ title: "Gagal mengubah status akun", description: e.message, variant: "destructive" });
+    }
+    setSavingEmail("");
+  };
+
+  // Hapus akun (riwayat laporan tetap tersimpan)
+  const confirmDelete = async () => {
+    const u = toDelete;
+    setToDelete(null);
+    if (!u) return;
+    setSavingEmail(u.email);
+    try {
+      await db.users.remove(u.email);
+      setUsers((list) => list.filter((x) => x.email !== u.email));
+      toast({ title: "Akun dihapus", description: u.nama || u.email });
+    } catch (e) {
+      toast({ title: "Gagal menghapus akun", description: e.message, variant: "destructive" });
+    }
+    setSavingEmail("");
+  };
+
   const addUser = async () => {
     if (!email.trim()) return;
     setAdding(true);
@@ -90,6 +133,7 @@ export default function ManageUsers() {
         </div>
         <p className="text-sm text-muted-foreground mb-4">
           Atur akses setiap akun: Admin (semua akses), Monitoring (lihat laporan), User (petugas).
+          Akun yang dinonaktifkan atau dihapus tidak bisa masuk lagi.
         </p>
 
         {loading ? (
@@ -97,40 +141,71 @@ export default function ManageUsers() {
         ) : users.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">Belum ada akun terdaftar.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {users.map((u) => {
               const isSelf = same(u.email, me?.email);
+              const isActive = u.aktif !== false;
+              const busy = savingEmail === u.email;
               return (
-                <div key={u.email} className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm truncate">
-                      {u.nama || u.email}
-                      {u.aktif === false && (
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">Nonaktif</span>
-                      )}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-                  </div>
-                  <Select
-                    value={u.role || "user"}
-                    onValueChange={(v) => changeRole(u, v)}
-                    disabled={isSelf || savingEmail === u.email}
-                  >
-                    <SelectTrigger
-                      className="w-36 h-11 shrink-0"
-                      aria-label={`Role ${u.nama || u.email}`}
-                      title={isSelf ? "Role akun sendiri tidak bisa diubah" : undefined}
+                <div key={u.email}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className={`min-w-0 ${isActive ? "" : "opacity-60"}`}>
+                      <p className="font-semibold text-sm truncate">
+                        {u.nama || u.email}
+                        {!isActive && (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">Nonaktif</span>
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate">{u.email}</p>
+                    </div>
+                    <Select
+                      value={u.role || "user"}
+                      onValueChange={(v) => changeRole(u, v)}
+                      disabled={isSelf || busy}
                     >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLES.map((r) => (
-                        <SelectItem key={r.value} value={r.value}>
-                          {r.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      <SelectTrigger
+                        className="w-36 h-11 shrink-0"
+                        aria-label={`Role ${u.nama || u.email}`}
+                        title={isSelf ? "Role akun sendiri tidak bisa diubah" : undefined}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {!isSelf && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-10"
+                        disabled={busy}
+                        onClick={() => toggleActive(u)}
+                      >
+                        {isActive ? (
+                          <UserX className="w-4 h-4 mr-2" />
+                        ) : (
+                          <UserCheck className="w-4 h-4 mr-2" />
+                        )}
+                        {isActive ? "Nonaktifkan" : "Aktifkan"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-10 text-destructive border-destructive/40"
+                        disabled={busy}
+                        aria-label={`Hapus ${u.nama || u.email}`}
+                        onClick={() => setToDelete(u)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -193,6 +268,23 @@ export default function ManageUsers() {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus akun ini?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete?.nama || toDelete?.email} ({toDelete?.email}) akan dihapus dan tidak bisa
+              masuk lagi. Riwayat laporan yang pernah diisi tetap tersimpan. Jika hanya ingin menutup
+              akses sementara, pilih Nonaktifkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Ya, hapus</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
