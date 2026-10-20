@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "@/api/sheetsClient";
-import { ArrowLeft, BarChart3, RotateCcw, UserPlus, Eye, Download } from "lucide-react";
+import { ArrowLeft, BarChart3, RotateCcw, UserPlus, Eye, Download, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { downloadAllReportsExcel } from "@/lib/exportExcel";
 import { Image } from "@/components/ui/image";
@@ -21,7 +21,10 @@ import { backOr } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
-import { SHIFTS, getShiftLabel } from "@/lib/cleaningConstants";
+import { SHIFTS, getShiftLabel, todayISO } from "@/lib/cleaningConstants";
+
+const LIVE_REFRESH_MS = 30000; // laporan diperbarui otomatis tiap 30 detik
+const daysAgoISO = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 export default function Monitoring() {
   const [list, setList] = useState([]);
@@ -34,19 +37,31 @@ export default function Monitoring() {
   const [detail, setDetail] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState(todayISO());
+  const [dateTo, setDateTo] = useState(todayISO());
+  const [lastUpdated, setLastUpdated] = useState(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const isAdmin = user?.role === "admin";
+  const canView = user?.role === "admin" || user?.role === "monitoring";
 
+  // Hanya Admin dan Monitoring yang boleh membuka halaman ini
   useEffect(() => {
-    if (user && user.role !== "admin") {
+    if (user && !canView) {
       navigate("/dashboard", { replace: true });
     }
   }, [user]);
 
   const loadData = async () => {
+    const rangeQuery =
+      dateFrom || dateTo
+        ? { tanggal: { ...(dateFrom && { $gte: dateFrom }), ...(dateTo && { $lte: dateTo }) } }
+        : null;
     const [trx, pet, allBlocks] = await Promise.all([
-      db.entities.Transaksi.list("-created_date", 200),
+      rangeQuery
+        ? db.entities.Transaksi.filter(rangeQuery, "-created_date", 1000)
+        : db.entities.Transaksi.list("-created_date", 200),
       db.entities.Petugas.filter({ aktif: true }),
       db.entities.ShiftSchedule.list(),
     ]);
@@ -59,14 +74,32 @@ export default function Monitoring() {
           (a.start_window || "").localeCompare(b.start_window || "")
       )
     );
+    setLastUpdated(new Date());
     setLoading(false);
   };
 
   const { pull, refreshing, handlers } = usePullToRefresh(loadData);
 
+  // Muat ulang saat rentang tanggal berubah
   useEffect(() => {
-    loadData();
+    setLoading(true);
+    loadData().catch(() => setLoading(false));
+  }, [dateFrom, dateTo]);
+
+  // Live report: muat ulang berkala selama tab terlihat
+  const loadRef = useRef(loadData);
+  loadRef.current = loadData;
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") loadRef.current().catch(() => {});
+    }, LIVE_REFRESH_MS);
+    return () => clearInterval(id);
   }, []);
+
+  const setRange = (from, to) => {
+    setDateFrom(from);
+    setDateTo(to);
+  };
 
   const filtered = list.filter(
     (t) =>
@@ -81,7 +114,7 @@ export default function Monitoring() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      await downloadAllReportsExcel();
+      await downloadAllReportsExcel({ from: dateFrom, to: dateTo });
       toast({
         title: "Excel diunduh",
         description: "Data Transaksi dan Log Shift tersimpan sebagai file Excel.",
@@ -128,18 +161,27 @@ export default function Monitoring() {
       <PullIndicator pull={pull} refreshing={refreshing} />
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-4">
-          <button
-            onClick={() => backOr(navigate, "/dashboard")}
-            aria-label="Kembali"
-            className="w-11 h-11 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => backOr(navigate, "/dashboard")}
+              aria-label="Kembali"
+              className="w-11 h-11 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
           <div>
             <h1 className="text-lg font-bold flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-primary" /> Monitoring
             </h1>
-            <p className="text-sm text-muted-foreground">Laporan pekerjaan petugas</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <span className="relative flex w-2 h-2">
+                <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
+                <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+              </span>
+              Live
+              {lastUpdated && ` · diperbarui ${format(lastUpdated, "HH:mm:ss")}`}
+            </p>
           </div>
           <Button
             variant="outline"
@@ -158,6 +200,64 @@ export default function Monitoring() {
           <Stat label="Done" value={doneCount} color="text-emerald-600" />
           <Stat label="Progress" value={progressCount} color="text-amber-600" />
           <Stat label="Belum" value={belumCount} color="text-zinc-600 dark:text-zinc-400" />
+        </div>
+
+        <div className="bg-card rounded-xl shadow p-4 mb-3">
+          <div className="flex items-center gap-2 mb-3">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            <p className="font-semibold text-sm">Filter Tanggal</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-sm text-muted-foreground">
+              Dari
+              <input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="mt-1 w-full h-10 rounded-md border border-input bg-transparent px-3 text-sm text-foreground"
+              />
+            </label>
+            <label className="text-sm text-muted-foreground">
+              Sampai
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="mt-1 w-full h-10 rounded-md border border-input bg-transparent px-3 text-sm text-foreground"
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {[
+              { label: "Hari ini", from: todayISO(), to: todayISO() },
+              { label: "7 hari", from: daysAgoISO(6), to: todayISO() },
+              { label: "30 hari", from: daysAgoISO(29), to: todayISO() },
+              { label: "Semua", from: "", to: "" },
+            ].map((r) => {
+              const active = dateFrom === r.from && dateTo === r.to;
+              return (
+                <button
+                  key={r.label}
+                  onClick={() => setRange(r.from, r.to)}
+                  aria-pressed={active}
+                  className={`h-8 px-3 rounded-full text-xs font-medium border ${
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-foreground border-transparent hover:bg-accent"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+          {!dateFrom && !dateTo && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Menampilkan 200 laporan terbaru. Pilih tanggal untuk melihat lebih banyak.
+            </p>
+          )}
         </div>
 
         <div className="flex gap-2 mb-4">
@@ -201,6 +301,7 @@ export default function Monitoring() {
 
         {!loading && <MonitoringCharts data={filtered} />}
 
+        {isAdmin && (
         <div className="bg-card rounded-xl shadow p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <UserPlus className="w-4 h-4 text-primary" />
@@ -250,12 +351,13 @@ export default function Monitoring() {
             </Button>
           </div>
         </div>
+        )}
 
         {loading ? (
           <div className="text-center text-muted-foreground py-8">Memuat...</div>
         ) : filtered.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 bg-card rounded-xl">
-            Belum ada laporan
+            Tidak ada laporan pada rentang ini
           </div>
         ) : (
           <div className="space-y-3">
@@ -275,7 +377,7 @@ export default function Monitoring() {
                   </div>
                   <StatusBadge status={t.status} />
                 </div>
-                {t.status !== "BELUM" && (
+                {isAdmin && t.status !== "BELUM" && (
                   <div className="mt-2">
                     <Button
                       size="sm"

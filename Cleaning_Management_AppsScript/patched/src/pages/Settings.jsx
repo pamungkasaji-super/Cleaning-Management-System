@@ -5,25 +5,29 @@ import { ArrowLeft, User as UserIcon, Car, LogOut } from "lucide-react";
 import { getSession } from "@/lib/cleaningSession";
 import { useAuth } from "@/lib/AuthContext";
 import { backOr } from "@/lib/nav";
+import ManageUsers from "@/components/cleaning/ManageUsers";
 
 export default function Settings() {
   const navigate = useNavigate();
   const session = getSession();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
+  const isMonitoring = user?.role === "monitoring";
+  const roleLabel = isAdmin ? "Admin" : isMonitoring ? "Monitoring" : "User";
 
+  // Akun Monitoring tidak punya sesi petugas, jadi tidak perlu dialihkan
   useEffect(() => {
-    if (!session) navigate("/", { replace: true });
+    if (!session && !isMonitoring) navigate("/", { replace: true });
   }, []);
 
-  if (!session) return null;
+  if (!session && !isMonitoring) return null;
 
   return (
     <div className="min-h-screen bg-muted/40 p-4 safe-top tab-bar-space">
       <div className="max-w-md mx-auto">
         <div className="flex items-center gap-3 mb-4">
           <button
-            onClick={() => backOr(navigate, "/dashboard")}
+            onClick={() => backOr(navigate, isMonitoring ? "/monitoring" : "/dashboard")}
             aria-label="Kembali"
             className="w-11 h-11 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"
           >
@@ -40,7 +44,7 @@ export default function Settings() {
           <div className="flex items-center justify-between gap-2 mt-1">
             <p className="text-lg font-bold text-foreground break-all">{user?.email}</p>
             <span className="text-sm bg-muted px-2.5 py-1 rounded-full text-muted-foreground shrink-0">
-              {isAdmin ? "Admin" : "User"}
+              {roleLabel}
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
@@ -55,6 +59,9 @@ export default function Settings() {
           </Button>
         </div>
 
+        {isAdmin && <ManageUsers />}
+
+        {session && (
         <div className="bg-card rounded-2xl shadow p-5 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
@@ -75,6 +82,7 @@ export default function Settings() {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

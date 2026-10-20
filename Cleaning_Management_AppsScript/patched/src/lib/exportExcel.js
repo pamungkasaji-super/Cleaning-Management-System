@@ -9,11 +9,22 @@ const fmt = (iso) => {
   return isNaN(d.getTime()) ? "" : format(d, "dd/MM/yyyy HH:mm");
 };
 
-export async function downloadAllReportsExcel() {
-  const [trx, logs] = await Promise.all([
-    db.entities.Transaksi.list("-created_date", 5000),
-    db.entities.ShiftLog.list("-created_date", 5000),
-  ]);
+// range opsional: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" } (salah satu boleh kosong)
+const rangeQuery = ({ from, to } = {}) => {
+  if (!from && !to) return null;
+  const q = {};
+  if (from) q.$gte = from;
+  if (to) q.$lte = to;
+  return { tanggal: q };
+};
+
+export async function downloadAllReportsExcel(range) {
+  const query = rangeQuery(range);
+  const load = (entity) =>
+    query
+      ? db.entities[entity].filter(query, "-created_date", 5000)
+      : db.entities[entity].list("-created_date", 5000);
+  const [trx, logs] = await Promise.all([load("Transaksi"), load("ShiftLog")]);
 
   const rowsTrx = trx.map((t) => ({
     Tanggal: t.tanggal || "",
@@ -54,5 +65,9 @@ export async function downloadAllReportsExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsTrx), "Transaksi");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsLog), "Log Shift");
-  XLSX.writeFile(wb, `laporan-cleaning-${todayISO()}.xlsx`);
+  const suffix =
+    range && (range.from || range.to)
+      ? `${range.from || "awal"}_sd_${range.to || "akhir"}`
+      : todayISO();
+  XLSX.writeFile(wb, `laporan-cleaning-${suffix}.xlsx`);
 }

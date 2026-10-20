@@ -19,6 +19,14 @@ import BottomTabBar from './components/cleaning/BottomTabBar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 
+// Akun Monitoring tidak memakai alur petugas (pilih petugas & shift),
+// jadi diarahkan langsung ke halaman Monitoring.
+const PetugasOnly = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.role === "monitoring") return <Navigate to="/monitoring" replace />;
+  return children;
+};
+
 const AuthenticatedApp = () => {
   const { user, isLoadingAuth, isLoadingPublicSettings } = useAuth();
   const location = useLocation();
@@ -33,14 +41,13 @@ const AuthenticatedApp = () => {
   }
 
   // Render the main app
-  const isAdmin = user?.role === "admin";
   const showTabs = ["/dashboard", "/monitoring", "/periodik", "/task", "/settings"].some((p) =>
     location.pathname.startsWith(p)
   );
 
   return (
     <>
-      {user && showTabs && <BottomTabBar isAdmin={isAdmin} />}
+      {user && showTabs && <BottomTabBar role={user.role} />}
       <AnimatePresence mode="wait" initial={false}>
         <Routes location={location} key={location.pathname}>
           <Route path="/login" element={<RouteTransition><Login /></RouteTransition>} />
@@ -48,10 +55,10 @@ const AuthenticatedApp = () => {
 
           <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
             {/* Add your page Route elements here */}
-            <Route path="/" element={<RouteTransition><CleaningLogin /></RouteTransition>} />
-            <Route path="/dashboard" element={<RouteTransition><Dashboard /></RouteTransition>} />
-            <Route path="/task/:scheduleId" element={<RouteTransition><TaskDetail /></RouteTransition>} />
-            <Route path="/periodik" element={<RouteTransition><Periodik /></RouteTransition>} />
+            <Route path="/" element={<RouteTransition><PetugasOnly><CleaningLogin /></PetugasOnly></RouteTransition>} />
+            <Route path="/dashboard" element={<RouteTransition><PetugasOnly><Dashboard /></PetugasOnly></RouteTransition>} />
+            <Route path="/task/:scheduleId" element={<RouteTransition><PetugasOnly><TaskDetail /></PetugasOnly></RouteTransition>} />
+            <Route path="/periodik" element={<RouteTransition><PetugasOnly><Periodik /></PetugasOnly></RouteTransition>} />
             <Route path="/monitoring" element={<RouteTransition><Monitoring /></RouteTransition>} />
             <Route path="/settings" element={<RouteTransition><Settings /></RouteTransition>} />
           </Route>

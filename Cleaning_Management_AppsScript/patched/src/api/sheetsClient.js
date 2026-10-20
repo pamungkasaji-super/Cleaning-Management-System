@@ -91,6 +91,12 @@ export const db = {
     updateMe: (data) => call({ action: "updateMe", data }),
     logout: () => setToken(null),
   },
+  // Kelola akun (khusus admin; backend menolak role lain)
+  users: {
+    list: () => call({ action: "listUsers" }),
+    setRole: (email, role) => call({ action: "setUserRole", email, role }),
+    add: (data) => call({ action: "addUser", data }),
+  },
   entities: {
     Petugas: makeEntity("Petugas"),
     ShiftLog: makeEntity("ShiftLog"),
