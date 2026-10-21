@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -141,34 +142,27 @@ export default function ManageUsers() {
         ) : users.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">Belum ada akun terdaftar.</p>
         ) : (
-          <div className="divide-y divide-border">
-            {users.map((u) => {
-              const isSelf = same(u.email, me?.email);
-              const isActive = u.aktif !== false;
-              const busy = savingEmail === u.email;
-              return (
-                <div
-                  key={u.email}
-                  className="py-4 first:pt-0 last:pb-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className={`min-w-0 sm:flex-1 ${isActive ? "" : "opacity-60"}`}>
-                    <p className="font-semibold text-sm truncate">
-                      {u.nama || u.email}
-                      {!isActive && (
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">Nonaktif</span>
-                      )}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-                  </div>
+          <TooltipProvider delayDuration={150}>
+            <div className="divide-y divide-border">
+              {users.map((u) => {
+                const isSelf = same(u.email, me?.email);
+                const isActive = u.aktif !== false;
+                const busy = savingEmail === u.email;
+                return (
+                  <div key={u.email} className="py-4 first:pt-0 last:pb-0 flex items-center gap-2">
+                    <div className={`min-w-0 flex-1 ${isActive ? "" : "opacity-60"}`}>
+                      <p className="font-semibold text-sm truncate">{u.nama || u.email}</p>
+                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                      {!isActive && <p className="text-xs text-muted-foreground">Nonaktif</p>}
+                    </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
                     <Select
                       value={u.role || "user"}
                       onValueChange={(v) => changeRole(u, v)}
                       disabled={isSelf || busy}
                     >
                       <SelectTrigger
-                        className="w-32 sm:w-36 h-11 shrink-0"
+                        className="w-[6.75rem] h-11 shrink-0 px-2.5"
                         aria-label={`Role ${u.nama || u.email}`}
                         title={isSelf ? "Role akun sendiri tidak bisa diubah" : undefined}
                       >
@@ -185,41 +179,51 @@ export default function ManageUsers() {
 
                     {isSelf ? (
                       <>
-                        {/* ruang kosong agar kolom role tetap sejajar dengan baris lain di layar lebar */}
-                        <div aria-hidden="true" className="hidden sm:block sm:w-40" />
-                        <div aria-hidden="true" className="hidden sm:block w-11" />
+                        {/* ruang kosong agar kolom role tetap sejajar dengan baris lain */}
+                        <div aria-hidden="true" className="w-11 shrink-0" />
+                        <div aria-hidden="true" className="w-11 shrink-0" />
                       </>
                     ) : (
                       <>
-                        <Button
-                          variant="outline"
-                          className="h-11 flex-1 sm:flex-none sm:w-40"
-                          disabled={busy}
-                          onClick={() => toggleActive(u)}
-                        >
-                          {isActive ? (
-                            <UserX className="w-4 h-4 mr-2" />
-                          ) : (
-                            <UserCheck className="w-4 h-4 mr-2" />
-                          )}
-                          {isActive ? "Nonaktifkan" : "Aktifkan"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="h-11 w-11 p-0 shrink-0 text-destructive border-destructive/40"
-                          disabled={busy}
-                          aria-label={`Hapus ${u.nama || u.email}`}
-                          onClick={() => setToDelete(u)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="h-11 w-11 p-0 shrink-0"
+                              disabled={busy}
+                              aria-label={isActive ? `Nonaktifkan ${u.nama || u.email}` : `Aktifkan ${u.nama || u.email}`}
+                              onClick={() => toggleActive(u)}
+                            >
+                              {isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {isActive
+                              ? "Nonaktifkan akun (tidak bisa masuk, riwayat tetap ada)"
+                              : "Aktifkan akun kembali"}
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="h-11 w-11 p-0 shrink-0 text-destructive border-destructive/40"
+                              disabled={busy}
+                              aria-label={`Hapus ${u.nama || u.email}`}
+                              onClick={() => setToDelete(u)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Hapus akun (riwayat laporan tetap tersimpan)</TooltipContent>
+                        </Tooltip>
                       </>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </TooltipProvider>
         )}
       </div>
 
