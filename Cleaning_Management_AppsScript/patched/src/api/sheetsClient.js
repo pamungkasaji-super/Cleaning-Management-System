@@ -20,10 +20,10 @@ class ApiError extends Error {
   }
 }
 
-async function call(payload) {
+async function call(payload, timeoutMs = TIMEOUT_MS) {
   if (!API_URL) throw new Error("VITE_SHEETS_API_URL belum diatur di file .env");
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     // text/plain = "simple request": tidak memicu preflight CORS yang tidak didukung Apps Script
     const res = await fetch(API_URL, {
@@ -89,7 +89,15 @@ export const db = {
     },
     me: () => call({ action: "me" }),
     updateMe: (data) => call({ action: "updateMe", data }),
-    logout: () => setToken(null),
+       clearToken: () => setToken(null),
+   async logout() {
+     try {
+       if (getToken()) await call({ action: "logout" }, 4000);
+     } catch {
+       /* jaringan bermasalah: tetap keluar */
+     }
+     setToken(null);
+   },
   },
   // Kelola akun (khusus admin; backend menolak role lain)
   users: {
