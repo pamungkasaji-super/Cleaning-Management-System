@@ -27,14 +27,14 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setAuthError(null);
     } catch (err) {
-      setUser(null);
-      setIsAuthenticated(false);
-      if (err.code === "NOT_REGISTERED") {
-        db.auth.logout();
-        setAuthError({ type: "user_not_registered", message: err.message });
-      } else if (err.code === "UNAUTHORIZED") {
-        db.auth.logout();
-      }
+     setUser(null);
+     setIsAuthenticated(false);
+     if (err.code === "NOT_REGISTERED") {
+       db.auth.clearToken();
+       setAuthError({ type: "user_not_registered", message: err.message });
+     } else if (err.code === "UNAUTHORIZED") {
+       db.auth.clearToken();
+     }
       // Gangguan jaringan: token dipertahankan, pengguna bisa muat ulang
     } finally {
       setIsLoadingAuth(false);
@@ -66,8 +66,8 @@ export const AuthProvider = ({ children }) => {
     return me;
   };
 
-  const logout = (shouldRedirect = true) => {
-    db.auth.logout();
+    const logout = async (shouldRedirect = true) => {
+     await db.auth.logout();
     clearSession();
     window.google?.accounts?.id?.disableAutoSelect?.();
     setUser(null);
