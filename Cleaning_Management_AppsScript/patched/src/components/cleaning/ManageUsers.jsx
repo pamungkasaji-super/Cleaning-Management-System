@@ -141,30 +141,34 @@ export default function ManageUsers() {
         ) : users.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">Belum ada akun terdaftar.</p>
         ) : (
-          <div className="space-y-4">
+          <div className="divide-y divide-border">
             {users.map((u) => {
               const isSelf = same(u.email, me?.email);
               const isActive = u.aktif !== false;
               const busy = savingEmail === u.email;
               return (
-                <div key={u.email}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className={`min-w-0 ${isActive ? "" : "opacity-60"}`}>
-                      <p className="font-semibold text-sm truncate">
-                        {u.nama || u.email}
-                        {!isActive && (
-                          <span className="ml-2 text-xs font-normal text-muted-foreground">Nonaktif</span>
-                        )}
-                      </p>
-                      <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-                    </div>
+                <div
+                  key={u.email}
+                  className="py-4 first:pt-0 last:pb-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className={`min-w-0 sm:flex-1 ${isActive ? "" : "opacity-60"}`}>
+                    <p className="font-semibold text-sm truncate">
+                      {u.nama || u.email}
+                      {!isActive && (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">Nonaktif</span>
+                      )}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate">{u.email}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
                     <Select
                       value={u.role || "user"}
                       onValueChange={(v) => changeRole(u, v)}
                       disabled={isSelf || busy}
                     >
                       <SelectTrigger
-                        className="w-36 h-11 shrink-0"
+                        className="w-32 sm:w-36 h-11 shrink-0"
                         aria-label={`Role ${u.nama || u.email}`}
                         title={isSelf ? "Role akun sendiri tidak bisa diubah" : undefined}
                       >
@@ -178,34 +182,40 @@ export default function ManageUsers() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
 
-                  {!isSelf && (
-                    <div className="flex gap-2 mt-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1 h-10"
-                        disabled={busy}
-                        onClick={() => toggleActive(u)}
-                      >
-                        {isActive ? (
-                          <UserX className="w-4 h-4 mr-2" />
-                        ) : (
-                          <UserCheck className="w-4 h-4 mr-2" />
-                        )}
-                        {isActive ? "Nonaktifkan" : "Aktifkan"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-10 text-destructive border-destructive/40"
-                        disabled={busy}
-                        aria-label={`Hapus ${u.nama || u.email}`}
-                        onClick={() => setToDelete(u)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
+                    {isSelf ? (
+                      <>
+                        {/* ruang kosong agar kolom role tetap sejajar dengan baris lain di layar lebar */}
+                        <div aria-hidden="true" className="hidden sm:block sm:w-40" />
+                        <div aria-hidden="true" className="hidden sm:block w-11" />
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="h-11 flex-1 sm:flex-none sm:w-40"
+                          disabled={busy}
+                          onClick={() => toggleActive(u)}
+                        >
+                          {isActive ? (
+                            <UserX className="w-4 h-4 mr-2" />
+                          ) : (
+                            <UserCheck className="w-4 h-4 mr-2" />
+                          )}
+                          {isActive ? "Nonaktifkan" : "Aktifkan"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-11 w-11 p-0 shrink-0 text-destructive border-destructive/40"
+                          disabled={busy}
+                          aria-label={`Hapus ${u.nama || u.email}`}
+                          onClick={() => setToDelete(u)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })}
